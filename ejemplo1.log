@@ -1,0 +1,13 @@
+Es (a -> a) una tautologia? 0
+Es (a -> -a) una contradiccion? 0
+Es decidible (a -> a) ? 1
+La tabla de verdad de (a + b * c) es : 
+< a,b,c,: ? >
+< 0 0 0 : 0 >
+< 0 0 1 : 0 >
+< 0 1 0 : 0 >
+< 0 1 1 : 1 >
+< 1 0 0 : 1 >
+< 1 0 1 : 1 >
+< 1 1 0 : 1 >
+< 1 1 1 : 1 >

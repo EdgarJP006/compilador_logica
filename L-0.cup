@@ -1,0 +1,613 @@
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+action code {:
+
+	void semPutSimbolo(String identificador,int valor){
+		parser.ts.putSimbolo(identificador,valor);
+	}
+
+	int semGetValor(String identificador){
+		if(parser.ts.existe(identificador))
+			return parser.ts.getValor(identificador);
+		else return 0;
+	}
+
+	Expresion semNuevoNumero(String s) {
+		int valor=0;
+		valor=Integer.parseInt(s);
+		return new Expresion(valor);
+	}
+
+	Expresion semNO(Expresion e) {
+		int valor=e.getContenido();
+		if(valor==0) valor=1; else valor=0;
+		return new Expresion(valor);
+	}
+
+	Expresion semAND(Expresion e1,Expresion e2) {
+		int v1=e1.getContenido();
+		int v2=e2.getContenido();
+		if(v1*v2==0) v1=0; else v1=1;
+		return new Expresion(v1);
+	}
+
+	Expresion semOR(Expresion e1,Expresion e2) {
+		int v1=e1.getContenido();
+		int v2=e2.getContenido();
+		if( v1!=0 || v2!=0) v1=1; else v1=0;
+		return new Expresion(v1);
+	}
+
+	Expresion semENTONCES(Expresion e1,Expresion e2) {
+		int v1=e1.getContenido();
+		int v2=e2.getContenido();
+		return semOR(semNO(e1),e2);
+	}
+
+	Expresion semDOBLEENTONCES(Expresion e1,Expresion e2) {
+		int v1=e1.getContenido();
+		int v2=e2.getContenido();
+		if((v1==0 && v2==0) || (v1==1 && v2==1)) v1=1;else v1=0;
+		return new Expresion(v1);
+	}
+
+	Expresion semValorIdentificador(String i) {
+		return new Expresion(semGetValor(i));
+	}
+
+	void semAsignar(String i,int v) {
+		semPutSimbolo(i,v);
+	}	
+	
+	String[][] semMatrizIdentificador(String id) {
+		String[][] s=new String[3][2];
+		s[0][0]=id;
+		s[1][0]="0";
+		s[1][1]="0";
+		s[2][0]="1";
+		s[2][1]="1";
+		return s;
+	}
+
+	int elevado(int base,int exponente) {
+		if(exponente>0) return base*elevado(base,exponente-1); else return 1;
+	}	
+
+	String[][] semMatrizAND(String[][] m1,String[][] m2) {
+		Vector v=new Vector();
+		for(int columna=0;columna<(m1[0].length)-1;columna++) {
+			if(!v.contains(m1[0][columna])) v.addElement(m1[0][columna]);
+		}
+		for(int columna=0;columna<(m2[0].length)-1;columna++) {
+			if(!v.contains(m2[0][columna])) v.addElement(m2[0][columna]);
+		}
+		int tamano=elevado(2,v.size());
+		String binario;
+		String[][] r=new String[tamano+1][v.size()+1];
+		for(int columna=0;columna<(r[0].length)-1;columna++) r[0][columna]=(String)v.elementAt(columna);
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer longitud=new StringBuffer();
+			binario=Integer.toBinaryString(fila-1);
+			for(int i=0;i<v.size()-binario.length();i++) longitud.append("0");
+			longitud.append(binario);
+			for(int columna=0;columna<v.size();columna++) {
+				r[fila][columna]=longitud.substring(columna,columna+1);
+			}
+		}
+		for(int fila=1;fila<m1.length;fila++) {
+			for(int columna=0;columna<(m1[0].length)-1;columna++) {
+				m1[fila][columna]=m1[0][columna]+"="+m1[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<m2.length;fila++) {
+			for(int columna=0;columna<(m2[0].length)-1;columna++) {
+				m2[fila][columna]=m2[0][columna]+"="+m2[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer c=new StringBuffer();
+			for(int columna=0;columna<(r[0].length)-1;columna++) {
+				c.append(r[0][columna]+"="+r[fila][columna]);
+			}
+			int r1=0;
+			boolean resultado1;
+			for(int fila1=1;fila1<m1.length;fila1++) {
+				resultado1=true;
+				for(int columna=0;columna<(m1[0].length)-1;columna++) {
+					if(c.toString().indexOf(m1[fila1][columna])<0) {
+						resultado1=false;
+						break;
+					}
+				}
+				if(resultado1==true) {
+					r1=Integer.parseInt(m1[fila1][(m1[0].length)-1]);
+					break;
+				}
+			}
+			int r2=0;
+			boolean resultado2;
+			for(int fila2=1;fila2<m2.length;fila2++) {
+				resultado2=true;
+				for(int columna=0;columna<(m2[0].length)-1;columna++) {
+					if(c.toString().indexOf(m2[fila2][columna])<0) {
+						resultado2=false;
+						break;
+					}
+				}
+				if(resultado2==true) {
+					r2=Integer.parseInt(m2[fila2][(m2[0].length)-1]);
+					break;
+				}
+			}
+			if(r1*r2==0) r[fila][(r[0].length)-1]="0";else r[fila][(r[0].length)-1]="1";
+		}		
+		return r;
+	}
+	
+
+	String[][] semMatrizOR(String[][] m1,String[][] m2) {
+		Vector v=new Vector();
+		for(int columna=0;columna<(m1[0].length)-1;columna++) {
+			if(!v.contains(m1[0][columna])) v.addElement(m1[0][columna]);
+		}
+		for(int columna=0;columna<(m2[0].length)-1;columna++) {
+			if(!v.contains(m2[0][columna])) v.addElement(m2[0][columna]);
+		}
+		int tamano=elevado(2,v.size());
+		String binario;
+		String[][] r=new String[tamano+1][v.size()+1];
+		for(int columna=0;columna<(r[0].length)-1;columna++) r[0][columna]=(String)v.elementAt(columna);
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer longitud=new StringBuffer();
+			binario=Integer.toBinaryString(fila-1);
+			for(int i=0;i<v.size()-binario.length();i++) longitud.append("0");
+			longitud.append(binario);
+			for(int columna=0;columna<v.size();columna++) {
+				r[fila][columna]=longitud.substring(columna,columna+1);
+			}
+		}
+		for(int fila=1;fila<m1.length;fila++) {
+			for(int columna=0;columna<(m1[0].length)-1;columna++) {
+				m1[fila][columna]=m1[0][columna]+"="+m1[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<m2.length;fila++) {
+			for(int columna=0;columna<(m2[0].length)-1;columna++) {
+				m2[fila][columna]=m2[0][columna]+"="+m2[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer c=new StringBuffer();
+			for(int columna=0;columna<(r[0].length)-1;columna++) {
+				c.append(r[0][columna]+"="+r[fila][columna]);
+			}
+			int r1=0;
+			boolean resultado1;
+			for(int fila1=1;fila1<m1.length;fila1++) {
+				resultado1=true;
+				for(int columna=0;columna<(m1[0].length)-1;columna++) {
+					if(c.toString().indexOf(m1[fila1][columna])<0) {
+						resultado1=false;
+						break;
+					}
+				}
+				if(resultado1==true) {
+					r1=Integer.parseInt(m1[fila1][(m1[0].length)-1]);
+					break;
+				}
+			}
+			int r2=0;
+			boolean resultado2;
+			for(int fila2=1;fila2<m2.length;fila2++) {
+				resultado2=true;
+				for(int columna=0;columna<(m2[0].length)-1;columna++) {
+					if(c.toString().indexOf(m2[fila2][columna])<0) {
+						resultado2=false;
+						break;
+					}
+				}
+				if(resultado2==true) {
+					r2=Integer.parseInt(m2[fila2][(m2[0].length)-1]);
+					break;
+				}
+			}
+			if(r1!=0 || r2!=0) r[fila][(r[0].length)-1]="1";else r[fila][(r[0].length)-1]="0";
+		}		
+		return r;
+	}	
+
+	String[][] semMatrizENTONCES(String[][] m1,String[][] m2) {
+		Vector v=new Vector();
+		for(int columna=0;columna<(m1[0].length)-1;columna++) {
+			if(!v.contains(m1[0][columna])) v.addElement(m1[0][columna]);
+		}
+		for(int columna=0;columna<(m2[0].length)-1;columna++) {
+			if(!v.contains(m2[0][columna])) v.addElement(m2[0][columna]);
+		}
+		int tamano=elevado(2,v.size());
+		String binario;
+		String[][] r=new String[tamano+1][v.size()+1];
+		for(int columna=0;columna<(r[0].length)-1;columna++) r[0][columna]=(String)v.elementAt(columna);
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer longitud=new StringBuffer();
+			binario=Integer.toBinaryString(fila-1);
+			for(int i=0;i<v.size()-binario.length();i++) longitud.append("0");
+			longitud.append(binario);
+			for(int columna=0;columna<v.size();columna++) {
+				r[fila][columna]=longitud.substring(columna,columna+1);
+			}
+		}
+		for(int fila=1;fila<m1.length;fila++) {
+			for(int columna=0;columna<(m1[0].length)-1;columna++) {
+				m1[fila][columna]=m1[0][columna]+"="+m1[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<m2.length;fila++) {
+			for(int columna=0;columna<(m2[0].length)-1;columna++) {
+				m2[fila][columna]=m2[0][columna]+"="+m2[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer c=new StringBuffer();
+			for(int columna=0;columna<(r[0].length)-1;columna++) {
+				c.append(r[0][columna]+"="+r[fila][columna]);
+			}
+			int r1=0;
+			boolean resultado1;
+			for(int fila1=1;fila1<m1.length;fila1++) {
+				resultado1=true;
+				for(int columna=0;columna<(m1[0].length)-1;columna++) {
+					if(c.toString().indexOf(m1[fila1][columna])<0) {
+						resultado1=false;
+						break;
+					}
+				}
+				if(resultado1==true) {
+					r1=Integer.parseInt(m1[fila1][(m1[0].length)-1]);
+					break;
+				}
+			}
+			int r2=0;
+			boolean resultado2;
+			for(int fila2=1;fila2<m2.length;fila2++) {
+				resultado2=true;
+				for(int columna=0;columna<(m2[0].length)-1;columna++) {
+					if(c.toString().indexOf(m2[fila2][columna])<0) {
+						resultado2=false;
+						break;
+					}
+				}
+				if(resultado2==true) {
+					r2=Integer.parseInt(m2[fila2][(m2[0].length)-1]);
+					break;
+				}
+			}
+			if(r1==0) r1=1;else r1=0;
+			if(r1!=0 || r2!=0) r[fila][(r[0].length)-1]="1";else r[fila][(r[0].length)-1]="0";
+		}		
+		return r;
+	}
+
+	String[][] semMatrizDOBLEENTONCES(String[][] m1,String[][] m2) {
+		Vector v=new Vector();
+		for(int columna=0;columna<(m1[0].length)-1;columna++) {
+			if(!v.contains(m1[0][columna])) v.addElement(m1[0][columna]);
+		}
+		for(int columna=0;columna<(m2[0].length)-1;columna++) {
+			if(!v.contains(m2[0][columna])) v.addElement(m2[0][columna]);
+		}
+		int tamano=elevado(2,v.size());
+		String binario;
+		String[][] r=new String[tamano+1][v.size()+1];
+		for(int columna=0;columna<(r[0].length)-1;columna++) r[0][columna]=(String)v.elementAt(columna);
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer longitud=new StringBuffer();
+			binario=Integer.toBinaryString(fila-1);
+			for(int i=0;i<v.size()-binario.length();i++) longitud.append("0");
+			longitud.append(binario);
+			for(int columna=0;columna<v.size();columna++) {
+				r[fila][columna]=longitud.substring(columna,columna+1);
+			}
+		}
+		for(int fila=1;fila<m1.length;fila++) {
+			for(int columna=0;columna<(m1[0].length)-1;columna++) {
+				m1[fila][columna]=m1[0][columna]+"="+m1[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<m2.length;fila++) {
+			for(int columna=0;columna<(m2[0].length)-1;columna++) {
+				m2[fila][columna]=m2[0][columna]+"="+m2[fila][columna];
+			}	
+		}
+		for(int fila=1;fila<r.length;fila++) {
+			StringBuffer c=new StringBuffer();
+			for(int columna=0;columna<(r[0].length)-1;columna++) {
+				c.append(r[0][columna]+"="+r[fila][columna]);
+			}
+			int r1=0;
+			boolean resultado1;
+			for(int fila1=1;fila1<m1.length;fila1++) {
+				resultado1=true;
+				for(int columna=0;columna<(m1[0].length)-1;columna++) {
+					if(c.toString().indexOf(m1[fila1][columna])<0) {
+						resultado1=false;
+						break;
+					}
+				}
+				if(resultado1==true) {
+					r1=Integer.parseInt(m1[fila1][(m1[0].length)-1]);
+					break;
+				}
+			}
+			int r2=0;
+			boolean resultado2;
+			for(int fila2=1;fila2<m2.length;fila2++) {
+				resultado2=true;
+				for(int columna=0;columna<(m2[0].length)-1;columna++) {
+					if(c.toString().indexOf(m2[fila2][columna])<0) {
+						resultado2=false;
+						break;
+					}
+				}
+				if(resultado2==true) {
+					r2=Integer.parseInt(m2[fila2][(m2[0].length)-1]);
+					break;
+				}
+			}
+			if((r1==0 && r2==0)|| (r1==1 && r2==1)) r[fila][(r[0].length)-1]="1";else r[fila][(r[0].length)-1]="0";
+		}		
+		return r;
+	}
+
+	String[][] semMatrizNOT(String[][] m) {
+		for(int fila=1;fila<m.length;fila++) {
+			if((m[fila][(m[0].length)-1]).equals("0")) m[fila][(m[0].length)-1]="1";else m[fila][(m[0].length)-1]="0";
+		}
+		return m;
+	}	
+
+	Expresion semTautologia(String[][] m) {
+		int resultado=1;
+		for(int fila=1;fila<m.length;fila++) {
+			if((m[fila][(m[0].length)-1]).equals("0")) {
+				resultado=0;
+				break;
+			}
+		}
+		return new Expresion(resultado);
+	}
+
+	Expresion semContradiccion(String[][] m) {
+		int resultado=1;
+		for(int fila=1;fila<m.length;fila++) {
+			if((m[fila][(m[0].length)-1]).equals("1")) {
+				resultado=0;
+				break;
+			}
+		}
+		return new Expresion(resultado);
+	}
+
+	Expresion semDecidible(String[][] m) {
+		int resultado=0;
+		for(int fila=1;fila<m.length;fila++) {
+			if((m[fila][(m[0].length)-1]).equals("1")) {
+				resultado=1;
+				break;
+			}
+		}
+		return new Expresion(resultado);
+	}
+
+	void semEscribeTabla(String[][] m) {
+		StringBuffer t=new StringBuffer();
+		t.append("< ");
+		for(int columna=0;columna<(m[0].length)-1;columna++) {
+			t.append(m[0][columna]+",");
+		}
+		t.append(": ? >");
+		parser.codigoIntermedio.escribirLn(t.toString());
+		for(int fila=1;fila<m.length;fila++) {
+			StringBuffer s=new StringBuffer();
+			s.append("< ");
+			for(int columna=0;columna<(m[0].length)-1;columna++) {
+				s.append(m[fila][columna]+" ");
+			}
+			s.append(": "+m[fila][m[0].length-1]+" ");
+			s.append(">");
+			parser.codigoIntermedio.escribirLn(s.toString());
+		}
+	}
+
+	void semFinPrograma() {
+		parser.codigoIntermedio.cerrarFicheroEscritura();
+	}
+
+	void semEscribir(String cadena) {
+		parser.codigoIntermedio.escribir(cadena);
+	}
+
+	void semEscribirLn(String cadena) {
+		parser.codigoIntermedio.escribirLn(cadena);
+	}
+:}
+
+parser code {:
+
+	static TablaSimbolos ts;
+	static CodigoIntermedio codigoIntermedio;
+	static String ficheroCodigoIntermedio=null;
+	static String codFuente;
+
+	public void error(String mensaje) {
+		System.out.println("ERROR lin:"+InformacionCodigo.linea+" tok:"+InformacionCodigo.token+" => "+mensaje);
+	}
+
+	public static void inicializar() throws IOException {
+		ts = new TablaSimbolos();
+		codigoIntermedio = new CodigoIntermedio(ficheroCodigoIntermedio);
+		codigoIntermedio.abrirFicheroEscritura();
+	}
+
+	public static void main(String args[]) throws Exception {
+		if (args.length != 1)
+			System.out.println(Textos.faltaFichero);
+		else {
+			try {
+				Yylex lexico = new Yylex(new FileReader(args[0]));
+				String name = (String)args[0];
+				codFuente= name.substring(0,name.lastIndexOf("."));
+				ficheroCodigoIntermedio = codFuente + ".log";
+				inicializar();
+				new parser(lexico).parse();
+			}
+			catch (FileNotFoundException e1) {
+				System.out.println(Textos.ficheroNoAbierto);
+			}
+		}
+	}
+
+	// Muestra el texto de un error
+	public void report_error(String message, Object info) {
+		error(message);
+	}
+
+	// Muestra un error de sintaxis
+	public void syntax_error(Symbol actual) {
+          error("Error SINTACTICO");  
+	}
+
+	// Muestra el texto de un error irrecuperable
+	public void report_fatal_error(String message, Object info) {
+		error(message);
+	}
+
+	// Muestra un mensaje cuando no se puede seguir analizando
+	public void unrecovered_syntax_error(Symbol actual) {
+	}
+:}
+
+terminal PUNTOCOMA;
+terminal PARENTIZQ;
+terminal PARENTDER;
+terminal NOT;
+terminal ENTONCES;
+terminal DOBLEENTONCES;
+terminal ASIGNACION;
+terminal AND;
+terminal OR;
+terminal WRITESTR;
+terminal WRITELOG;
+terminal WRITEINTRO;
+terminal WRITETABLA;
+terminal TAUTO;
+terminal CONTRA;
+terminal DECI;
+terminal String CADENA;
+terminal String NUMERO;
+terminal String ID;
+
+non terminal prog;
+non terminal nulo;
+non terminal Expresion expresion;
+non terminal String identificador;
+non terminal asig;
+non terminal sentwritestr;
+non terminal sentwritelog;
+non terminal sentwriteintro;
+non terminal sentwritetabla;
+non terminal String[][] senttauto;
+non terminal String[][] sentcontra;
+non terminal String[][] sentdeci;
+non terminal sentencia;
+non terminal sentencias;
+non terminal String[][] matriz;
+
+precedence left DOBLEENTONCES;
+precedence left ENTONCES;
+precedence left OR;
+precedence left AND;
+precedence right NOT;
+
+
+prog ::= sentencias {: semFinPrograma(); :};
+
+sentencias ::= sentencias sentencia | nulo;
+
+identificador ::= ID:i {: RESULT=i; :} ;
+
+sentencia ::=  asig PUNTOCOMA |
+		sentwritestr PUNTOCOMA | 
+		sentwritelog PUNTOCOMA |
+		sentwriteintro PUNTOCOMA |
+		sentwritetabla PUNTOCOMA;
+
+asig ::= identificador:i ASIGNACION expresion:e {: semAsignar(i,e.getContenido()); :};
+
+//Sentencia writelog
+sentwritelog ::= WRITELOG PARENTIZQ expresion:e 
+	     PARENTDER {: semEscribir(String.valueOf(e.getContenido())); :};
+
+//Sentencia writeintro
+sentwriteintro ::= WRITEINTRO PARENTIZQ  
+	     PARENTDER {: semEscribirLn(""); :};
+
+//Sentencia writestr
+sentwritestr ::= WRITESTR PARENTIZQ CADENA:c 
+	     PARENTDER {: semEscribir(c.toString()); :};
+
+//Sentencia writetabla
+sentwritetabla ::= WRITETABLA PARENTIZQ matriz:m 
+	     PARENTDER {: semEscribeTabla(m); :};
+
+//Sentencia tautologia
+senttauto ::= TAUTO PARENTIZQ matriz:m PARENTDER {: RESULT=m; :};
+
+//Sentencia contradiccion
+sentcontra ::= CONTRA PARENTIZQ matriz:m PARENTDER {: RESULT=m; :};
+
+//Sentencia decidible
+sentdeci ::= DECI PARENTIZQ matriz:m PARENTDER {: RESULT=m; :};
+
+//Expresiones
+expresion	::=	NOT expresion:e {: RESULT=semNO(e); :}
+				 |
+			expresion:e1 DOBLEENTONCES expresion:e2 {: RESULT=semDOBLEENTONCES(e1,e2); :} 
+				 |
+			expresion:e1 ENTONCES expresion:e2 {: RESULT=semENTONCES(e1,e2); :} 
+				 |
+			expresion:e1 AND expresion:e2 {: RESULT=semAND(e1,e2); :} 
+				 |
+			expresion:e1 OR expresion:e2 {: RESULT=semOR(e1,e2); :} 
+				 |
+			NUMERO:i {: RESULT=semNuevoNumero(i); :} 
+				 |
+			PARENTIZQ expresion:e PARENTDER {: RESULT=e; :} 
+				 |
+			identificador:i {: RESULT=semValorIdentificador(i); :}
+				|
+			senttauto:s {: RESULT=semTautologia(s); :}
+				|
+			sentcontra:s {: RESULT=semContradiccion(s); :}
+				|
+			sentdeci:s {: RESULT=semDecidible(s); :}
+				 ;
+
+matriz ::= NOT matriz:m {: RESULT=semMatrizNOT(m); :}
+			|
+		matriz:m1 DOBLEENTONCES matriz:m2 {: RESULT=semMatrizDOBLEENTONCES(m1,m2); :}
+			|
+		matriz:m1 ENTONCES matriz:m2 {: RESULT=semMatrizENTONCES(m1,m2); :}
+			|
+		matriz:m1 AND matriz:m2 {: RESULT=semMatrizAND(m1,m2); :}
+			|
+		matriz:m1 OR matriz:m2 {: RESULT=semMatrizOR(m1,m2); :}
+			|
+		PARENTIZQ matriz:m PARENTDER {: RESULT=m; :}
+			|
+		identificador:i {: RESULT=semMatrizIdentificador(i); :}
+			;
+
+nulo ::=;

@@ -1,0 +1,82 @@
+import java_cup.runtime.Symbol;
+import java.io.IOException;
+
+%%
+%full
+%unicode
+%cup
+%line
+%char
+
+%eofval{
+	{ return Token(sym.EOF); }
+%eofval}
+
+%{
+	String tok = "";
+
+	private Symbol Token(int Token, Object lexema) throws IOException {
+		int linea = yyline + 1;
+		tok = (String)lexema;
+		if (Token != sym.EOF)
+			InformacionCodigo.guardarInformacionCodigo(linea,tok);
+		return new Symbol(Token, lexema);
+	}
+
+	private Symbol Token(int Token) throws IOException {
+		return Token(Token, yytext());
+	}
+
+%}
+
+EspacioOTerminador=[\ \t\f\r|\n|\r\n]
+Digito = [0-9]
+Letra = [A-Za-z_]
+Num = [0-1]
+Alfanumerico = ({Letra}|{Digito})
+Identificador = ({Letra})({Alfanumerico})*
+CadenaTexto = \"([\x20-\x21\x23-\xFE])*\"  
+  
+%%
+
+<YYINITIAL>		"-"		{	return Token(sym.NOT); }
+
+<YYINITIAL>		"->"		{	return Token(sym.ENTONCES); }
+
+<YYINITIAL>		"<->"		{	return Token(sym.DOBLEENTONCES); }
+
+<YYINITIAL>		"="		{	return Token(sym.ASIGNACION); }
+
+<YYINITIAL>		"*"		{	return Token(sym.AND); }
+
+<YYINITIAL>		"+"		{	return Token(sym.OR); }
+
+<YYINITIAL>		";"		{	return Token(sym.PUNTOCOMA); }
+
+<YYINITIAL>		"("		{	return Token(sym.PARENTIZQ); }
+
+<YYINITIAL>		")"		{	return Token(sym.PARENTDER); }
+
+<YYINITIAL>       tauto        {     return Token(sym.TAUTO); }
+
+<YYINITIAL>       contra        {     return Token(sym.CONTRA); }
+
+<YYINITIAL>       deci        {     return Token(sym.DECI); }
+
+<YYINITIAL>       writelog        {     return Token(sym.WRITELOG); }
+
+<YYINITIAL>       writestr       {     return Token(sym.WRITESTR); }
+
+<YYINITIAL>       writeintro       {     return Token(sym.WRITEINTRO); }
+
+<YYINITIAL>       writetabla       {     return Token(sym.WRITETABLA); }
+
+<YYINITIAL>  {CadenaTexto}   { return Token(sym.CADENA,yytext()); }
+
+<YYINITIAL>  {Identificador}	 { return Token(sym.ID,yytext()); }
+
+<YYINITIAL>  {Num}	{ return Token(sym.NUMERO,yytext()); }
+
+<YYINITIAL>  {EspacioOTerminador}+ { }
+
+<YYINITIAL>   .|\n { System.err.println("Caracter no permitido: "+yytext()); }
